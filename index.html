@@ -177,66 +177,61 @@
       const contentPageCount = contentPdf.getPageCount();
 
       for (let i = 0; i < contentPageCount; i++) {
-  const [contentPageCopy] = await contentPdf.copyPages(contentPdf, [i]);
-  const page = outPdf.addPage([pageWidth, pageHeight]);
+        const [contentPageCopy] = await contentPdf.copyPages(contentPdf, [i]);
+        const page = outPdf.addPage([pageWidth, pageHeight]);
 
-  const embeddedLetterhead = await outPdf.embedPage(letterheadPage);
-  const embeddedContent = await outPdf.embedPage(contentPageCopy);
+        const embeddedLetterhead = await outPdf.embedPage(letterheadPage);
+        const embeddedContent = await outPdf.embedPage(contentPageCopy);
 
-  // ✅ symmetrical margins
-  const margins = { top: 180, bottom: 20, left: 20, right: 20 };
-  const drawWidth = pageWidth - margins.left - margins.right;
-  const drawHeight = pageHeight - margins.top - margins.bottom;
+        const margins = { top: 180, bottom: 20, left: 20, right: 20 };
+        const drawWidth = pageWidth - margins.left - margins.right;
+        const drawHeight = pageHeight - margins.top - margins.bottom;
 
-  const cw = contentPageCopy.getWidth();
-  const ch = contentPageCopy.getHeight();
+        const cw = contentPageCopy.getWidth();
+        const ch = contentPageCopy.getHeight();
 
-  const scale = Math.min(drawWidth / cw, drawHeight / ch);
-  const scaledW = Math.round(cw * scale);
-  const scaledH = Math.round(ch * scale);
+        const scale = Math.min(drawWidth / cw, drawHeight / ch);
+        const scaledW = Math.round(cw * scale);
+        const scaledH = Math.round(ch * scale);
 
-  const offsetX = Math.round(margins.left + (drawWidth - scaledW) / 2);
-  const offsetY = Math.round(margins.bottom + (drawHeight - scaledH) / 2);
+        // ✅ round offsets so content is centered identically on all devices
+        const offsetX = Math.round(margins.left + (drawWidth - scaledW) / 2);
+        const offsetY = Math.round(margins.bottom + (drawHeight - scaledH) / 2);
 
-  // Letterhead
-  page.drawPage(embeddedLetterhead, { x: 0, y: 0, width: pageWidth, height: pageHeight });
+        // Letterhead
+        page.drawPage(embeddedLetterhead, { x: 0, y: 0, width: pageWidth, height: pageHeight });
 
-  // Trimmed Content
-  page.drawPage(embeddedContent, { x: offsetX, y: offsetY, width: scaledW, height: scaledH });
+        // Trimmed Content
+        page.drawPage(embeddedContent, { x: offsetX, y: offsetY, width: scaledW, height: scaledH });
 
-  // Stamp
-  page.drawImage(stampImg, {
-    x: pageWidth - 150,
-    y: pageHeight - 780,
-    width: 70,
-    height: 70,
-  });
+        // Stamp
+        page.drawImage(stampImg, {
+          x: pageWidth - 150,
+          y: pageHeight - 780,
+          width: 70,
+          height: 70,
+        });
 
-  // Date
-  page.drawText(dateStr, {
-    x: pageWidth - 145,
-    y: pageHeight - 170,
-    size: 10,
-    font: font,
-    color: rgb(0, 0, 0),
-  });
+        // Date
+        page.drawText(dateStr, {
+          x: pageWidth - 145,
+          y: pageHeight - 170,
+          size: 10,
+          font: font,
+          color: rgb(0, 0, 0),
+        });
 
-  // Reference No
-  if (referenceNo) {
-    page.drawText(referenceNo, {
-      x: pageWidth - 530,
-      y: pageHeight - 170,
-      size: 10,
-      font: font,
-      color: rgb(0, 0, 0),
-    });
-  }
-
-  // ✅ Force mobile/desktop to align the same
-  page.setMediaBox(0, 0, pageWidth, pageHeight);
-  page.setCropBox(0, 0, pageWidth, pageHeight);
-}
-
+        // Reference No
+        if (referenceNo) {
+          page.drawText(referenceNo, {
+            x: pageWidth - 530,
+            y: pageHeight - 170,
+            size: 10,
+            font: font,
+            color: rgb(0, 0, 0),
+          });
+        }
+      }
 
       const finalBytes = await outPdf.save();
       const blob = new Blob([finalBytes], { type: "application/pdf" });
