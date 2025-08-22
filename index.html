@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Letterhead Maker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-white to-blue-100 flex flex-col min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-wide">
+        ✨ Letterhead Maker
+      </h1>
+      <nav class="hidden sm:flex space-x-6 text-white text-sm font-medium">
+        <a href="#" class="hover:text-gray-200">Home</a>
+        <a href="#" class="hover:text-gray-200">Features</a>
+        <a href="#" class="hover:text-gray-200">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-grow flex items-center justify-center px-4 py-8">
+    <div class="bg-white shadow-xl rounded-3xl p-6 sm:p-10 w-full max-w-lg text-center transform transition hover:scale-[1.02]">
+      <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">
+        Print PDF on Letterhead
+      </h2>
+      <p class="text-gray-500 mb-6 text-sm sm:text-base">
+        Upload your PDF, enter a reference number, and we’ll automatically apply it to the official letterhead.
+      </p>
+
+      <form id="uploadForm" class="space-y-5">
+        <!-- Reference No Field -->
+        <input 
+          type="text" 
+          id="referenceNo" 
+          placeholder="Enter Reference No." 
+          class="block w-full px-3 py-2 text-sm sm:text-base text-gray-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+
+        <!-- File Upload -->
+        <input 
+          type="file" 
+          id="pdfFile" 
+          accept="application/pdf" 
+          required 
+          class="block w-full text-sm sm:text-base text-gray-700 border border-gray-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+        >
+
+        <!-- Submit Button -->
+        <button 
+          type="submit" 
+          class="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg shadow-md hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 text-sm sm:text-base">
+          🚀 Generate Letterhead PDF
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-gray-300 text-center py-4 text-xs sm:text-sm mt-6">
+    Powered by <span class="font-semibold text-white">Treesol Technologies</span>
+  </footer>
+
+  <!-- Main Script -->
+  <script>
+    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+
+    async function fetchAsset(path) {
+      const response = await fetch(path);
+      return await response.arrayBuffer();
+    }
+
+    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const fileInput = document.getElementById("pdfFile");
+      const referenceNo = document.getElementById("referenceNo").value.trim();
+      if (!fileInput.files.length) {
+        alert("Please upload a PDF file.");
+        return;
+      }
+
+      const pdfBytes = await fileInput.files[0].arrayBuffer();
+      const letterheadBytes = await fetchAsset("letterhead.pdf");
+      const stampBytes = await fetchAsset("stamp.png");
+
+      const outPdf = await PDFDocument.create();
+      const letterheadPdf = await PDFDocument.load(letterheadBytes);
+      const contentPdf = await PDFDocument.load(pdfBytes);
+
+      let stampImg;
+      if ("stamp.png".endsWith(".png")) {
+        stampImg = await outPdf.embedPng(stampBytes);
+      } else {
+        stampImg = await outPdf.embedJpg(stampBytes);
+      }
+
+      const font = await outPdf.embedFont(StandardFonts.Helvetica);
+      const today = new Date();
+      const dateStr = today.toLocaleDateString("en-GB");
+
+      const [letterheadPage] = await letterheadPdf.copyPages(letterheadPdf, [0]);
+      const pageWidth = letterheadPage.getWidth();
+      const pageHeight = letterheadPage.getHeight();
+
+      const contentPageCount = contentPdf.getPageCount();
+
+      for (let i = 0; i < contentPageCount; i++) {
+        const [contentPageCopy] = await contentPdf.copyPages(contentPdf, [i]);
+        const page = outPdf.addPage([pageWidth, pageHeight]);
+
+        const embeddedLetterhead = await outPdf.embedPage(letterheadPage);
+        const embeddedContent = await outPdf.embedPage(contentPageCopy);
+
+        const margins = { top: 180, bottom: 20, left: 5, right: 5 };
+        const drawX = margins.left;
+        const drawY = margins.bottom;
+        const drawWidth = Math.max(1, pageWidth - margins.left - margins.right);
+        const drawHeight = Math.max(1, pageHeight - margins.top - margins.bottom);
+
+        const cw = contentPageCopy.getWidth();
+        const ch = contentPageCopy.getHeight();
+        const scale = Math.min(drawWidth / cw, drawHeight / ch);
+        const scaledW = cw * scale;
+        const scaledH = ch * scale;
+        const offsetX = drawX + (drawWidth - scaledW) / 2;
+        const offsetY = drawY + (drawHeight - scaledH) / 2;
+
+        // Letterhead
+        page.drawPage(embeddedLetterhead, { x: 0, y: 0, width: pageWidth, height: pageHeight });
+
+        // Content
+        page.drawPage(embeddedContent, { x: offsetX, y: offsetY, width: scaledW, height: scaledH });
+
+        // Stamp
+        page.drawImage(stampImg, {
+          x: pageWidth - 150,
+          y: pageHeight - 780,
+          width: 70,
+          height: 70,
+        });
+
+        // Date
+        page.drawText(dateStr, {
+          x: pageWidth - 145,
+          y: pageHeight - 170,
+          size: 10,
+          font: font,
+          color: rgb(0, 0, 0),
+        });
+
+        // Reference No
+        if (referenceNo) {
+          page.drawText(referenceNo, {
+            x: pageWidth - 530,
+            y: pageHeight - 170,
+            size: 10,
+            font: font,
+            color: rgb(0, 0, 0),
+          });
+        }
+      }
+
+      const finalBytes = await outPdf.save();
+      const blob = new Blob([finalBytes], { type: "application/pdf" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "output.pdf";
+      link.click();
+    });
+  </script>
+</body>
+</html>
