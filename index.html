@@ -175,7 +175,7 @@
         const embeddedLetterhead = await outPdf.embedPage(letterheadPage);
         const embeddedContent = await outPdf.embedPage(contentPageCopy);
 
-        const margins = { top: 180, bottom: 20, left: 5, right: 5 };
+        const margins = { top: 180, bottom: 20, left: 20, right: 20 };
         const drawWidth = pageWidth - margins.left - margins.right;
         const drawHeight = pageHeight - margins.top - margins.bottom;
 
@@ -236,3 +236,4 @@
   </script>
 </body>
 </html>
+
