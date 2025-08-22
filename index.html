@@ -84,8 +84,8 @@
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2.0 });
 
-        const viewport = page.getViewport({ scale: 2.0 }); // same DPI for all
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         canvas.width = Math.round(viewport.width);
@@ -112,11 +112,6 @@
         }
 
         if (minX < maxX && minY < maxY) {
-          minX = Math.floor(minX);
-          minY = Math.floor(minY);
-          maxX = Math.ceil(maxX);
-          maxY = Math.ceil(maxY);
-
           const cw = maxX - minX;
           const ch = maxY - minY;
 
@@ -188,17 +183,18 @@
         const ch = contentPageCopy.getHeight();
 
         const scale = Math.min(drawWidth / cw, drawHeight / ch);
-        const scaledW = Math.round(cw * scale);
-        const scaledH = Math.round(ch * scale);
 
-        // ✅ Rounded offsets (fixes mobile shift)
-        const offsetX = Math.round(margins.left + (drawWidth - scaledW) / 2);
-        const offsetY = Math.round(margins.bottom + (drawHeight - scaledH) / 2);
+        const scaledW = Math.floor(cw * scale);
+        const scaledH = Math.floor(ch * scale);
+
+        // ✅ Use floor for offsets → consistent across DPR
+        const offsetX = Math.floor(margins.left + (drawWidth - scaledW) / 2);
+        const offsetY = Math.floor(margins.bottom + (drawHeight - scaledH) / 2);
 
         // Letterhead
         page.drawPage(embeddedLetterhead, { x: 0, y: 0, width: pageWidth, height: pageHeight });
 
-        // Content
+        // Trimmed Content
         page.drawPage(embeddedContent, { x: offsetX, y: offsetY, width: scaledW, height: scaledH });
 
         // Stamp
