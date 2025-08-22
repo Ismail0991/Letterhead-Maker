@@ -10,6 +10,12 @@
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-white to-blue-100 flex flex-col min-h-screen">
 
+  <!-- Splash Screen -->
+  <div id="splash" class="fixed inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 flex flex-col items-center justify-center z-50">
+    <h1 class="text-4xl sm:text-5xl font-extrabold text-white mb-4 animate-pulse">✨ Letterhead Maker</h1>
+    <p class="text-white text-sm sm:text-base">Loading, please wait...</p>
+  </div>
+
   <!-- Header -->
   <header class="bg-gradient-to-r from-blue-600 to-indigo-600 shadow-md">
     <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
@@ -67,6 +73,17 @@
     Powered by <span class="font-semibold text-white">Treesol Technologies</span>
   </footer>
 
+  <!-- Loading Modal -->
+  <div id="loadingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+    <div class="bg-white p-6 rounded-2xl shadow-lg flex flex-col items-center">
+      <svg class="animate-spin h-8 w-8 text-blue-600 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+      </svg>
+      <p class="text-gray-700 font-medium">Your PDF is being generated...</p>
+    </div>
+  </div>
+
   <!-- Main Script -->
   <script>
     const { PDFDocument, rgb, StandardFonts } = PDFLib;
@@ -84,8 +101,6 @@
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-
-        // force same DPI on all devices
         const viewport = page.getViewport({ scale: 2.0 });
 
         const canvas = document.createElement("canvas");
@@ -132,7 +147,6 @@
           const pngBytes = await fetch(pngUrl).then(res => res.arrayBuffer());
           const img = await trimmedPdf.embedPng(pngBytes);
 
-          // ensure identical placement by anchoring at (0,0)
           const page2 = trimmedPdf.addPage([cw, ch]);
           page2.drawImage(img, { x: 0, y: 0, width: cw, height: ch });
         }
@@ -142,103 +156,108 @@
 
     document.getElementById("uploadForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      document.getElementById("loadingModal").classList.remove("hidden");
 
-      const fileInput = document.getElementById("pdfFile");
-      const referenceNo = document.getElementById("referenceNo").value.trim();
-      if (!fileInput.files.length) {
-        alert("Please upload a PDF file.");
-        return;
-      }
+      try {
+        const fileInput = document.getElementById("pdfFile");
+        const referenceNo = document.getElementById("referenceNo").value.trim();
+        if (!fileInput.files.length) {
+          alert("Please upload a PDF file.");
+          return;
+        }
 
-      const pdfBytes = await fileInput.files[0].arrayBuffer();
-      const trimmedBytes = await trimPdf(pdfBytes);
-      const letterheadBytes = await fetchAsset("letterhead.pdf");
-      const stampBytes = await fetchAsset("stamp.png");
+        const pdfBytes = await fileInput.files[0].arrayBuffer();
+        const trimmedBytes = await trimPdf(pdfBytes);
+        const letterheadBytes = await fetchAsset("letterhead.pdf");
+        const stampBytes = await fetchAsset("stamp.png");
 
-      const outPdf = await PDFDocument.create();
-      const letterheadPdf = await PDFDocument.load(letterheadBytes);
-      const contentPdf = await PDFDocument.load(trimmedBytes);
+        const outPdf = await PDFDocument.create();
+        const letterheadPdf = await PDFDocument.load(letterheadBytes);
+        const contentPdf = await PDFDocument.load(trimmedBytes);
 
-      let stampImg;
-      if ("stamp.png".endsWith(".png")) {
-        stampImg = await outPdf.embedPng(stampBytes);
-      } else {
-        stampImg = await outPdf.embedJpg(stampBytes);
-      }
+        let stampImg;
+        if ("stamp.png".endsWith(".png")) {
+          stampImg = await outPdf.embedPng(stampBytes);
+        } else {
+          stampImg = await outPdf.embedJpg(stampBytes);
+        }
 
-      const font = await outPdf.embedFont(StandardFonts.Helvetica);
-      const today = new Date();
-      const dateStr = today.toLocaleDateString("en-GB");
+        const font = await outPdf.embedFont(StandardFonts.Helvetica);
+        const today = new Date();
+        const dateStr = today.toLocaleDateString("en-GB");
 
-      const [letterheadPage] = await letterheadPdf.copyPages(letterheadPdf, [0]);
-      const pageWidth = letterheadPage.getWidth();
-      const pageHeight = letterheadPage.getHeight();
+        const [letterheadPage] = await letterheadPdf.copyPages(letterheadPdf, [0]);
+        const pageWidth = letterheadPage.getWidth();
+        const pageHeight = letterheadPage.getHeight();
 
-      const contentPageCount = contentPdf.getPageCount();
+        const contentPageCount = contentPdf.getPageCount();
 
-      for (let i = 0; i < contentPageCount; i++) {
-        const [contentPageCopy] = await contentPdf.copyPages(contentPdf, [i]);
-        const page = outPdf.addPage([pageWidth, pageHeight]);
+        for (let i = 0; i < contentPageCount; i++) {
+          const [contentPageCopy] = await contentPdf.copyPages(contentPdf, [i]);
+          const page = outPdf.addPage([pageWidth, pageHeight]);
 
-        const embeddedLetterhead = await outPdf.embedPage(letterheadPage);
-        const embeddedContent = await outPdf.embedPage(contentPageCopy);
+          const embeddedLetterhead = await outPdf.embedPage(letterheadPage);
+          const embeddedContent = await outPdf.embedPage(contentPageCopy);
 
-        const margins = { top: 180, bottom: 20, left: 20, right: 20 };
-        const drawWidth = pageWidth - margins.left - margins.right;
-        const drawHeight = pageHeight - margins.top - margins.bottom;
+          const margins = { top: 180, bottom: 70, left: 5, right: 5 };
+          const drawWidth = pageWidth - margins.left - margins.right;
+          const drawHeight = pageHeight - margins.top - margins.bottom;
 
-        const cw = contentPageCopy.getWidth();
-        const ch = contentPageCopy.getHeight();
+          const cw = contentPageCopy.getWidth();
+          const ch = contentPageCopy.getHeight();
 
-        const scale = Math.min(drawWidth / cw, drawHeight / ch);
-        const scaledW = Math.round(cw * scale);
-        const scaledH = Math.round(ch * scale);
+          const scale = Math.min(drawWidth / cw, drawHeight / ch);
+          const scaledW = Math.round(cw * scale);
+          const scaledH = Math.round(ch * scale);
 
-        // ✅ round offsets so content is centered identically on all devices
-        const offsetX = Math.round(margins.left + (drawWidth - scaledW) / 2);
-        const offsetY = Math.round(margins.bottom + (drawHeight - scaledH) / 2);
+          const offsetX = Math.round(margins.left + (drawWidth - scaledW) / 2);
+          const offsetY = Math.round(margins.bottom + (drawHeight - scaledH) / 2);
 
-        // Letterhead
-        page.drawPage(embeddedLetterhead, { x: 0, y: 0, width: pageWidth, height: pageHeight });
+          page.drawPage(embeddedLetterhead, { x: 0, y: 0, width: pageWidth, height: pageHeight });
+          page.drawPage(embeddedContent, { x: offsetX, y: offsetY, width: scaledW, height: scaledH });
 
-        // Trimmed Content
-        page.drawPage(embeddedContent, { x: offsetX, y: offsetY, width: scaledW, height: scaledH });
+          page.drawImage(stampImg, {
+            x: pageWidth - 70,
+            y: pageHeight - 780,
+            width: 70,
+            height: 70,
+          });
 
-        // Stamp
-        page.drawImage(stampImg, {
-          x: pageWidth - 150,
-          y: pageHeight - 780,
-          width: 70,
-          height: 70,
-        });
-
-        // Date
-        page.drawText(dateStr, {
-          x: pageWidth - 145,
-          y: pageHeight - 170,
-          size: 10,
-          font: font,
-          color: rgb(0, 0, 0),
-        });
-
-        // Reference No
-        if (referenceNo) {
-          page.drawText(referenceNo, {
-            x: pageWidth - 530,
+          page.drawText(dateStr, {
+            x: pageWidth - 145,
             y: pageHeight - 170,
             size: 10,
             font: font,
             color: rgb(0, 0, 0),
           });
-        }
-      }
 
-      const finalBytes = await outPdf.save();
-      const blob = new Blob([finalBytes], { type: "application/pdf" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "output.pdf";
-      link.click();
+          if (referenceNo) {
+            page.drawText(referenceNo, {
+              x: pageWidth - 530,
+              y: pageHeight - 170,
+              size: 10,
+              font: font,
+              color: rgb(0, 0, 0),
+            });
+          }
+        }
+
+        const finalBytes = await outPdf.save();
+        const blob = new Blob([finalBytes], { type: "application/pdf" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "output.pdf";
+        link.click();
+      } finally {
+        document.getElementById("loadingModal").classList.add("hidden");
+      }
+    });
+
+    // Hide splash after 2s
+    window.addEventListener("load", () => {
+      setTimeout(() => {
+        document.getElementById("splash").classList.add("hidden");
+      }, 2000);
     });
   </script>
 </body>
