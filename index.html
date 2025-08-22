@@ -85,9 +85,7 @@
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
 
-        // force same DPI on all devices
-        const viewport = page.getViewport({ scale: 2.0 });
-
+        const viewport = page.getViewport({ scale: 2.0 }); // same DPI for all
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         canvas.width = Math.round(viewport.width);
@@ -132,7 +130,6 @@
           const pngBytes = await fetch(pngUrl).then(res => res.arrayBuffer());
           const img = await trimmedPdf.embedPng(pngBytes);
 
-          // ensure identical placement by anchoring at (0,0)
           const page2 = trimmedPdf.addPage([cw, ch]);
           page2.drawImage(img, { x: 0, y: 0, width: cw, height: ch });
         }
@@ -194,14 +191,14 @@
         const scaledW = Math.round(cw * scale);
         const scaledH = Math.round(ch * scale);
 
-        // ✅ round offsets so content is centered identically on all devices
+        // ✅ Rounded offsets (fixes mobile shift)
         const offsetX = Math.round(margins.left + (drawWidth - scaledW) / 2);
         const offsetY = Math.round(margins.bottom + (drawHeight - scaledH) / 2);
 
         // Letterhead
         page.drawPage(embeddedLetterhead, { x: 0, y: 0, width: pageWidth, height: pageHeight });
 
-        // Trimmed Content
+        // Content
         page.drawPage(embeddedContent, { x: offsetX, y: offsetY, width: scaledW, height: scaledH });
 
         // Stamp
